@@ -2,11 +2,17 @@ import { Server as HTTPServer } from "http";
 import { Socket, Server } from "socket.io";
 import { customAlphabet } from "nanoid";
 import { Logger } from "./logger";
-import { Room } from "./room";
+import { Room, TRoomStatus } from "./room";
 
 const socketLogger = new Logger("⚡️[SocketServer]");
 
 const roomIdGenerator = customAlphabet("123456789ABCDEF", 6);
+
+export type TChangeRoomStatus = {
+  status: TRoomStatus;
+  firstPlayerUsername?: string;
+  secondPlayerUsername?: string;
+};
 
 export class ServerSocket {
   public static instance: ServerSocket;
@@ -136,7 +142,6 @@ export class ServerSocket {
 
     socket.on("disconnect", () => {
       //TODO: Find if a user was in a room, if he was then delete the room
-
       socketLogger.log(`Disconnect received from ${socket.id}`);
 
       const uid = this.GetUidFromSocketId(socket.id);
@@ -163,7 +168,10 @@ export class ServerSocket {
 
       socket.join(roomId);
       // this.io.to(socket.id).emit("created_room", roomId);
-      this.SendMessage("created_room", [socket.id], roomId);
+      this.SendMessage("created_room", [socket.id], {
+        roomId,
+        ownerUsername: uid,
+      });
 
       socketLogger.log(
         `User with ID ${uid} is created a room with id: ${roomId}.`
@@ -190,15 +198,15 @@ export class ServerSocket {
         `User with ID ${uid} joined to a room with id ${roomId}. Room is ready to play.`
       );
 
-      // this.io
-      //   .to(roomId)
-      //   .emit("change_room_status", this.rooms.get(roomId).status);
+      // {status: '', firstPlayerUsername: '', }
 
-      this.SendMessageToRoom(
-        "change_room_status",
-        roomId,
-        this.rooms.get(roomId).status
-      );
+      const currentRoomStatus: TChangeRoomStatus = {
+        status: this.rooms.get(roomId).status,
+        firstPlayerUsername: this.rooms.get(roomId).firstPlayerUid,
+        secondPlayerUsername: this.rooms.get(roomId).secondPlayerUid,
+      };
+
+      this.SendMessageToRoom("change_room_status", roomId, currentRoomStatus);
     });
 
     socket.on("leave_room", (roomId: string) => {
@@ -220,13 +228,14 @@ export class ServerSocket {
         this.rooms.delete(roomId);
         socketLogger.log(`Deleted room with id: ${roomId}`);
 
-        // this.io.to(roomId).emit("change_room_status", room.status);
-        this.SendMessageToRoom("change_room_status", roomId, room.status);
+        const currentRoomStatus: TChangeRoomStatus = {
+          status: this.rooms.get(roomId).status,
+        };
 
-        // this.io.to(roomId).emit("kick", "Owner leaved the room.");
+        this.SendMessageToRoom("change_room_status", roomId, currentRoomStatus);
+
         this.SendMessageToRoom("kick", roomId, "Owner leaved the room.");
       } else {
-        // this.io.to(room.secondPlayerSocket?.id).emit("kick");
         this.SendMessage("kick", [room.secondPlayerSocket?.id]);
 
         room.removePlayer(uid);
@@ -235,14 +244,20 @@ export class ServerSocket {
           `Kicked a second player from a room with id: ${roomId}`
         );
 
+        const currentRoomStatus: TChangeRoomStatus = {
+          status: room.status,
+          firstPlayerUsername: room.firstPlayerUid,
+        };
+
         this.SendMessage(
           "change_room_status",
           [room.firstPlayerSocket.id],
-          room.status
+          currentRoomStatus
         );
 
-        // this.io.to(socket.id).emit("change_room_status", "notInRoom");
-        this.SendMessage("change_room_status", [socket.id], "notInRoom");
+        this.SendMessage("change_room_status", [socket.id], {
+          status: "notInRoom",
+        });
       }
 
       socket.leave(roomId);
@@ -275,8 +290,9 @@ export class ServerSocket {
           );
         }
 
-        // this.io.to(roomId).emit("change_room_status", room.status);
-        this.SendMessageToRoom("change_room_status", roomId, room.status);
+        this.SendMessageToRoom("change_room_status", roomId, {
+          status: room.status,
+        });
 
         socket.leave(roomId);
       }
