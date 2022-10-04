@@ -209,6 +209,26 @@ export class ServerSocket {
       this.SendMessageToRoom("change_room_status", roomId, currentRoomStatus);
     });
 
+    socket.on("start_game", (roomId: string) => {
+      const uid = this.GetUidFromSocketId(socket.id);
+      socketLogger.log(
+        `User with ID ${uid} is trying to start game in a room with id ${roomId}.`
+      );
+
+      const room = this.rooms.get(roomId);
+      if (!room) return;
+      if (room.status !== "ready") return;
+
+      room.status = "playing";
+
+      this.SendMessageToRoom("starting", roomId);
+      this.SendMessageToRoom("change_room_status", roomId, {
+        status: room.status,
+        firstPlayerUsername: room.firstPlayerUid,
+        secondPlayerUsername: room.secondPlayerUid,
+      });
+    });
+
     socket.on("leave_room", (roomId: string) => {
       const uid = this.GetUidFromSocketId(socket.id);
       socketLogger.log(
