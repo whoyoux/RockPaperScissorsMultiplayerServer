@@ -223,11 +223,6 @@ export class ServerSocket {
       }
 
       if (room.isOwnerOfRoom(uid)) {
-        room.removeRoom();
-
-        this.rooms.delete(roomId);
-        socketLogger.log(`Deleted room with id: ${roomId}`);
-
         const currentRoomStatus: TChangeRoomStatus = {
           status: this.rooms.get(roomId).status,
         };
@@ -235,6 +230,10 @@ export class ServerSocket {
         this.SendMessageToRoom("change_room_status", roomId, currentRoomStatus);
 
         this.SendMessageToRoom("kick", roomId, "Owner leaved the room.");
+
+        room.removeRoom();
+        this.rooms.delete(roomId);
+        socketLogger.log(`Deleted room with id: ${roomId}`);
       } else {
         this.SendMessage("kick", [room.secondPlayerSocket?.id]);
 
