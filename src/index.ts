@@ -37,5 +37,3 @@ app.get("/rooms", (req: Request, res: Response) => {
 httpServer.listen(port, () => {
   expressLogger.log(`Server is running at https://localhost:${port}`);
 });
-
-module.exports = httpServer;
