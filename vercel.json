@@ -1,5 +1,8 @@
 {
   "version": 2,
+  "buildCommand": "yarn build",
+  "installCommand": "yarn",
+  "outputDirectory": "dist",
   "builds": [
     {
       "src": "./index.js",
